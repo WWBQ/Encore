@@ -13,8 +13,9 @@
 - [ ] **Encore Skill for Claude Code**：一个 `/encore` 命令，接收对话文本
 - [ ] **意图分类器**：调用 LLM 做 few-shot 分类，输出 bug_fix / learning / idea
 - [ ] **三类提取模板**：每种意图对应一个结构化提取 prompt
+- [ ] **AI 上下文卡片**：每条笔记生成 `context_digest` 字段（≤2000 字），其他 AI 读完后可直接接手对话
 - [ ] **本地存储**：输出为 Markdown + YAML frontmatter，存入 `~/.encore/notes/`
-- [ ] **内部 JSON Schema**：定义 `encore_note_v0.1.json` 数据契约，仅自己使用
+- [ ] **内部 JSON Schema**：定义 `encore_note_v0.1.json` 数据契约（已创建，见 `design/`），仅自己使用
 
 **不做的**：
 - 不做浏览器插件、IDE 插件
