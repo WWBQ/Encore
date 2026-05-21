@@ -1,0 +1,19 @@
+[project]
+name = "encore"
+version = "0.1.0"
+description = "AI对话知识归档工具 — 让每一次AI对话都成为你的数字资产"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+encore = "encore.cli:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
