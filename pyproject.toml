@@ -1,6 +1,6 @@
 [project]
 name = "encore-ai"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI对话知识归档工具 — 让每一次AI对话都成为你的数字资产"
 requires-python = ">=3.10"
 dependencies = [
