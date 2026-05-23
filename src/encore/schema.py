@@ -4,14 +4,10 @@ import json
 from pathlib import Path
 
 SCHEMA_PATH = Path(__file__).parent / "encore_schema_v0.1.json"
-
-
 def load_schema() -> dict:
     """加载数据 Schema 定义"""
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
 def validate(note: dict) -> list[str]:
     """校验必填字段和枚举值，返回错误列表"""
     errors = []

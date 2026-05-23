@@ -11,10 +11,22 @@ Archive the current conversation to `~/.encore/notes/`.
 
 1. Review the full current session
 2. Detect the conversation language and output all fields in that language
-3. Determine core intent: bug_fix / learning / idea
-4. Extract structured data using the corresponding template below
-5. Generate context_digest: a compressed summary ≤2000 chars so another AI can pick up the conversation
-6. Assemble JSON and run `encore save '<json>'`
+3. **Segment the session** into distinct topics (see Topic Segmentation below)
+4. For **each segment**, classify intent and extract structured data independently
+5. Assemble and save one note per segment
+6. Report a summary of all notes created
+
+## Topic Segmentation
+
+A single session often spans multiple distinct topics. Split by logical boundaries:
+
+- A new problem/error being raised = new segment
+- A clear subject shift (e.g., from debugging → to deployment, from code → to docs) = new segment
+- The user explicitly starting a new task = new segment
+
+**Granularity rule**: if you're unsure whether two topics should be separate, merge them. Better one rich note than two thin ones.
+
+For each segment, determine its own intent and fill the corresponding template.
 
 ## Intent Classification
 

@@ -6,3 +6,8 @@ dist/
 build/
 .venv/
 venv/
+.DS_Store
+ai_intel_agent/
+ai_tools_report.html
+system-prompts-and-models-of-ai-tools/
+.claude/settings.local.json
