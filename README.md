@@ -1,71 +1,86 @@
-# Encore — 让每一次 AI 对话，都成为你的数字资产
+# Encore — Turn Every AI Conversation Into a Digital Asset
 
-## 痛点：被遗忘的"数字黄金"
+## The Problem: Forgotten "Digital Gold"
 
-每天，我们都在与 ChatGPT、Claude、Cursor 进行着极具价值的对话。我们排查了深度的代码 Bug，探讨了绝妙的产品架构，学习了晦涩的技术概念。
+Every day, we have incredibly valuable conversations with ChatGPT, Claude, and Cursor. We debug deep code issues, explore brilliant product architectures, and learn obscure technical concepts.
 
-但是，当你关掉对话框的那一刻，这些知识就随之消散了。下一次遇到同样的报错，你依然需要重新提问；那些 AI 建议你"下一步该做的事"，转头就被遗忘。
+But the moment you close that chat window, that knowledge evaporates. The next time you hit the same error, you start from scratch. The "next steps" your AI suggested? Forgotten by tomorrow.
 
-**对话是碎片的，但知识不应该是。**
+**Conversations are fragmented. Knowledge shouldn't be.**
 
-## 什么是 Encore？
+## What is Encore?
 
-Encore 不是另一款笔记软件，而是一个**意图驱动的 AI 知识路由器**。
+Encore isn't another note-taking app. It's an **intent-driven AI knowledge router**.
 
-它寄生在你已有的 AI 对话环境中（Claude Code、IDE、浏览器）。它能听懂你与 AI 的对话，自动剥离废话，提取核心价值，并将其转化为结构化的文档和待办事项，精准投递到你现有的工作流中。
+It lives inside your existing AI environments (Claude Code, IDE, browser). It understands your conversations with AI, strips away the noise, extracts the core value, and transforms it into structured documents and action items — delivered precisely into your existing workflow.
 
-**你只管和 AI 解决问题，Encore 负责帮你记住一切。**
+**You focus on solving problems with AI. Encore remembers everything.**
 
-## 核心特性
+## Core Features
 
-### 零摩擦捕获
+### Zero-Friction Capture
 
-"最好的工具，是让你感觉不到它的存在。"
+"The best tool is the one you don't notice."
 
-Encore 拒绝让你在多个软件间复制粘贴。通过内嵌于 Claude Code 的 Skill、IDE 插件和浏览器扩展，Encore 直接驻留在你的对话发生地。一个指令或一次点击，剩下的工作全部在后台静默完成。
+Encore rejects the copy-paste-between-apps workflow. By embedding directly into Claude Code as a Skill, and through IDE and browser extensions, Encore lives where your conversations happen. One command or one click — the rest happens silently in the background.
 
-### 动态意图解析
+### Dynamic Intent Parsing
 
-Encore 不做简单的"聊天记录导出"。它拥有自己的思考中枢，能精准识别你对话的真实意图，并动态应用不同的沉淀模板：
+Encore doesn't just export chat logs. It has its own reasoning core that identifies the true intent of your conversation and applies the right extraction template:
 
-| 模式 | 自动提取 |
-|------|---------|
-| 🐛 排错模式 | 核心报错 → 踩坑记录 → 正确解决流程 → 最终代码 |
-| 📚 学习模式 | 核心概念 → 费曼技巧总结 → 拓展阅读 |
-| 💡 灵感模式 | 核心 Idea → 优劣势分析 → 落地步骤 |
+| Mode | Automatically Extracted |
+|------|------------------------|
+| 🐛 Debug | Error symptoms → failed attempts → root cause → working solution |
+| 📚 Learning | Core concept → Feynman-style summary → related concepts → further reading |
+| 💡 Ideation | Core idea → pros/cons analysis → concrete action steps |
 
-### 智能资产分发
+### Intelligent Asset Distribution
 
-Encore 遵循"让信息去该去的地方"原则，无缝对接你现有的生产力工具：
+Encore follows the principle of "send information where it belongs," integrating seamlessly with your existing tools:
 
-- 复盘文档与知识点 → 自动写入 Notion / Obsidian
-- 高频工具函数 → 自动剥离并存入 GitHub Gist
-- 下一步行动指南 → 自动转化为待办任务，推送到 Todoist
+- Review docs & knowledge → auto-sync to Notion / Obsidian
+- Reusable utility functions → auto-extract to GitHub Gist
+- Next-step action items → auto-push to Todoist
 
-### 记忆回响
+### Memory Resonance
 
-"存下来的知识，能在需要时自动跳出来，才叫外脑。"
+"Knowledge that resurfaces when you need it — that's a second brain."
 
-当你再次遇到类似的报错时，Encore 会被唤醒并提醒你："上个月你遇到过类似问题，当时的复盘文档在这里，要不要先看看？"
+When you encounter a similar error again, Encore wakes up and reminds you: "You ran into something similar last month. Here's the post-mortem. Want to take a look first?"
 
-### AI 上下文接力
+### AI Context Handoff
 
-"跨 AI 对话，不丢失上下文。"
+"Cross-AI conversations without losing context."
 
-每个归档笔记都会自动生成一份 `context_digest`——2000 字以内的结构化摘要。下一个 AI 读完就能直接接手，无需重复解释背景。**50 轮对话的核心信息，压缩到一张卡片。**
+Every archived note auto-generates a `context_digest` — a structured summary under 2000 characters. The next AI can read it, pick up the context, and continue without you re-explaining everything. **50 rounds of conversation, compressed into a single card.**
 
-## 产品形态
+## Product Architecture
 
-Encore 采用 **"前端寄生，后端独立"** 的架构：
+Encore follows a **"parasitic frontend, standalone backend"** architecture:
 
-- **Encore for Claude Code** — 基于 Claude Code Skill 打造，终端环境下的一键知识归档
-- **Encore Browser Extension** — 嵌入 ChatGPT / Claude Web 端，一键沉淀网页对话
-- **Encore Workflow** — 基于 LangGraph 的异步处理引擎，负责意图识别与数据分发
+- **Encore for Claude Code** — a Claude Code Skill for one-click knowledge archiving in the terminal
+- **Encore Browser Extension** — embed into ChatGPT / Claude Web for one-click web conversation archiving
+- **Encore Workflow** — an async processing engine built on LangGraph for intent recognition and data distribution
 
-## 愿景
+## Quick Start
 
-Encore 的终极目标，是为你打造一个真正懂你的**认知外脑**。
+```bash
+pip install encore-ai
+```
 
-随着时间的推移，Encore 沉淀的不仅是文档，更是你个人的思考路径、踩坑经验和成长轨迹。让 AI 不仅是你解决当下问题的工具，更是你积累终身数字资产的合伙人。
+Then copy the skill file:
 
-**Encore — 念念不忘，必有回响。**
+```bash
+mkdir -p ~/.claude/skills
+cp .claude/skills/encore.md ~/.claude/skills/
+```
+
+Start a Claude Code session, have a conversation, and type `/encore` to archive it.
+
+## Vision
+
+Encore's ultimate goal is to build a **cognitive second brain** that truly understands you.
+
+Over time, what Encore accumulates isn't just documents — it's your personal thinking patterns, hard-won debugging lessons, and growth trajectory. It turns AI from a tool for solving today's problems into a partner for building lifelong digital assets.
+
+**Encore — what matters, remembered.**

@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-SCHEMA_PATH = Path(__file__).parent.parent.parent / "design" / "encore_schema_v0.1.json"
+SCHEMA_PATH = Path(__file__).parent / "encore_schema_v0.1.json"
 
 
 def load_schema() -> dict:
