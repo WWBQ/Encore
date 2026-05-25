@@ -9,6 +9,10 @@ Encore archives your AI conversations as structured, searchable notes. One comma
 ```bash
 pip install encore-ai
 
+# Install the /encore skill for Claude Code
+mkdir -p ~/.claude/skills
+cp .claude/skills/encore.md ~/.claude/skills/
+
 # Want Feishu integration?
 encore setup feishu
 ```
