@@ -9,12 +9,21 @@ Encore archives your AI conversations as structured, searchable notes. One comma
 ```bash
 pip install encore-ai
 
-# Save to local Markdown (works immediately)
-encore save '{"title":"Learned X","intent":"learning","context_digest":"...","payload":{"core_concept":"X","feynman_summary":"X is..."}}'
-
-# Or connect Feishu
+# Want Feishu integration?
 encore setup feishu
 ```
+
+Then use it inside any Claude Code session — just type `/encore` when you want to archive the conversation:
+
+```
+You:  /encore
+Claude: [reviews the conversation, detects 2 topics, creates 2 notes]
+        🐛 Fix TLS cert verification in feishu adapter
+        📚 How feishu tenant_access_token differs from user_access_token
+        ✅ Archived to local and feishu
+```
+
+The AI reads your conversation, classifies intent, extracts structured data, and saves it — no manual JSON needed.
 
 ## Core Commands
 
