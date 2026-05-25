@@ -13,6 +13,7 @@ Config fields in ~/.encore/config.yaml:
 import json
 import re
 import secrets
+import ssl
 import time
 import urllib.request
 import urllib.error
@@ -70,7 +71,7 @@ class FeishuAdapter(BaseAdapter):
         if self._app_token:
             return self._app_token
         cached = _read_app_token_cache()
-        if cached and cached.get("expire_at", 0) > time.time():
+        if cached and cached.get("token") and cached.get("expire_at", 0) > time.time():
             self._app_token = cached["token"]
             return self._app_token
         self._app_token = self._fetch_app_token()
@@ -79,14 +80,13 @@ class FeishuAdapter(BaseAdapter):
     def _fetch_app_token(self) -> str:
         url = f"{FEISHU_HOST}/open-apis/auth/v3/tenant_access_token/internal"
         body = json.dumps({"app_id": self.app_id, "app_secret": self.app_secret}).encode()
-        try:
-            data = _request_with_retry(url, data=body, method="POST")
-            token = data.get("tenant_access_token", "")
-            expire = data.get("expire", 7200)
-            _write_app_token_cache(token, time.time() + expire - 300)
-            return token
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"Feishu app auth failed: {e.code}")
+        data = _request_with_retry(url, data=body, method="POST")
+        token = data.get("tenant_access_token", "")
+        if not token:
+            raise RuntimeError("Failed to get tenant_access_token")
+        expire = data.get("expire", 7200)
+        _write_app_token_cache(token, time.time() + expire - 300)
+        return token
 
     def _refresh_user_token(self, refresh_token: str) -> None:
         data = self._api_app("POST", "/open-apis/authen/v1/oidc/refresh_token", {
@@ -120,7 +120,7 @@ class FeishuAdapter(BaseAdapter):
         auth_url = (
             f"{FEISHU_HOST}/open-apis/authen/v1/authorize"
             f"?app_id={self.app_id}"
-            f"&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
+            f"&redirect_uri={urllib.parse.quote(redirect_uri, safe=':/')}"
             f"&scope={urllib.parse.quote(scope, safe='')}"
             f"&state={state}"
         )
@@ -134,21 +134,23 @@ class FeishuAdapter(BaseAdapter):
 
         server.timeout = 120
         deadline = time.time() + 120
-        while result_holder["code"] is None and result_holder["error"] is None:
+        code = None
+        while time.time() < deadline:
             server.handle_request()
-            if time.time() > deadline:
-                break
+            if result_holder["code"]:
+                try:
+                    result = self._exchange_code(result_holder["code"])
+                    server.server_close()
+                    return result
+                except Exception:
+                    result_holder["code"] = None
+                    continue
+            if result_holder["error"]:
+                server.server_close()
+                raise RuntimeError(f"OAuth failed: {result_holder['error']}")
 
         server.server_close()
-
-        if result_holder["error"]:
-            raise RuntimeError(f"OAuth failed: {result_holder['error']}")
-
-        code = result_holder["code"]
-        if not code:
-            raise RuntimeError("OAuth timeout: no authorization code received")
-
-        return self._exchange_code(code)
+        raise RuntimeError("OAuth timeout: no authorization code received")
 
     def _exchange_code(self, code: str) -> dict:
         data = self._api_app("POST", "/open-apis/authen/v1/oidc/access_token", {
@@ -491,6 +493,16 @@ def _extract_raw_json(body: str) -> dict | None:
     return None
 
 
+def _ssl_context():
+    cfg = _get_feishu_config()
+    verify = cfg.get("verify_ssl", True)
+    if isinstance(verify, str):
+        verify = verify.lower() not in ("false", "0", "no", "off")
+    if not verify:
+        return ssl._create_unverified_context()
+    return None
+
+
 def _request_with_retry(url: str, data: bytes | None = None,
                         method: str = "GET", token: str = "") -> dict:
     headers = {"Content-Type": "application/json"}
@@ -502,11 +514,11 @@ def _request_with_retry(url: str, data: bytes | None = None,
         for k, v in headers.items():
             req.add_header(k, v)
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as resp:
                 result = json.loads(resp.read())
             if result.get("code") != 0:
                 raise RuntimeError(f"Feishu API error: {result.get('code')} {result.get('msg')}")
-            return result.get("data", {})
+            return result.get("data") or {k: v for k, v in result.items() if k not in ("code", "msg")}
         except urllib.error.HTTPError:
             raise
         except (urllib.error.URLError, OSError) as e:
@@ -557,6 +569,10 @@ def _clear_user_token_cache() -> None:
 
 class _CallbackHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.client_address[0] not in ("127.0.0.1", "::1", "localhost"):
+            self._respond("Forbidden")
+            return
+
         from urllib.parse import urlparse, parse_qs
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
@@ -596,7 +612,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
 
 
 def _start_callback_server(port: int, result_holder: dict) -> HTTPServer:
-    server = HTTPServer(("127.0.0.1", port), _CallbackHandler)
+    server = HTTPServer(("", port), _CallbackHandler)
     server.result = result_holder
     server.timeout = 10
     return server
