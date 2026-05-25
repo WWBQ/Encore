@@ -70,7 +70,7 @@ def _run_feishu_guide(current_cfg: dict):
 def main():
     """Encore — AI 对话知识归档工具"""
     pass
-@main.command()
+@main.command(name="save")
 @click.argument("data", required=False)
 @click.option("--file", "-f", "json_file", type=click.Path(exists=True), help="从 JSON 文件读取")
 def save_cmd(data: str | None, json_file: str | None):
@@ -108,9 +108,13 @@ def save_cmd(data: str | None, json_file: str | None):
             click.echo(f"校验错误: {e}", err=True)
         raise SystemExit(1)
 
-    filepath = save(note)
-    click.echo(f"✅ 已归档: {filepath}")
-@main.command()
+    results = save(note)
+    for name, identifier in results.items():
+        if identifier:
+            click.echo(f"✅ [{name}] {identifier}")
+        else:
+            click.echo(f"❌ [{name}] 保存失败")
+@main.command(name="list")
 @click.option("--intent", "-i", type=click.Choice(["bug_fix", "learning", "idea"]), help="按意图过滤")
 def list_cmd(intent: str | None):
     """列出所有已归档笔记"""
@@ -125,7 +129,7 @@ def list_cmd(intent: str | None):
         title = n.get("title", "未命名")
         click.echo(f"  {intent_icon} {title}")
         click.echo(f"    文件: {n['_file']}  |  {n.get('created_at', '')}")
-@main.command()
+@main.command(name="search")
 @click.argument("keyword")
 def search_cmd(keyword: str):
     """按关键词搜索笔记（匹配标题和标签）"""
@@ -140,7 +144,7 @@ def search_cmd(keyword: str):
         title = n.get("title", "未命名")
         click.echo(f"  {intent_icon} {title}")
         click.echo(f"    文件: {n['_file']}  |  标签: {', '.join(n.get('tags', []))}")
-@main.command()
+@main.command(name="share")
 @click.argument("keyword")
 def share_cmd(keyword: str):
     """分享一条笔记给其他 AI（输出 metadata + context_digest）
@@ -157,6 +161,7 @@ def share_cmd(keyword: str):
     for n in results:
         note = read_note(n["_file"])
         if not note:
+            click.echo(f"⚠ 无法读取: {n['_file']}")
             continue
 
         intent_icon = {"bug_fix": "🐛", "learning": "📚", "idea": "💡"}.get(note.get("intent", ""), "📝")

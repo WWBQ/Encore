@@ -12,7 +12,7 @@ Config fields in ~/.encore/config.yaml:
 
 import json
 import re
-import ssl
+import secrets
 import time
 import urllib.request
 import urllib.error
@@ -79,10 +79,8 @@ class FeishuAdapter(BaseAdapter):
     def _fetch_app_token(self) -> str:
         url = f"{FEISHU_HOST}/open-apis/auth/v3/tenant_access_token/internal"
         body = json.dumps({"app_id": self.app_id, "app_secret": self.app_secret}).encode()
-        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, context=_ssl_context()) as resp:
-                data = json.loads(resp.read())
+            data = _request_with_retry(url, data=body, method="POST")
             token = data.get("tenant_access_token", "")
             expire = data.get("expire", 7200)
             _write_app_token_cache(token, time.time() + expire - 300)
@@ -91,19 +89,10 @@ class FeishuAdapter(BaseAdapter):
             raise RuntimeError(f"Feishu app auth failed: {e.code}")
 
     def _refresh_user_token(self, refresh_token: str) -> None:
-        app_token = self._get_app_token()
-        url = f"{FEISHU_HOST}/open-apis/authen/v1/oidc/refresh_token"
-        body = json.dumps({
+        data = self._api_app("POST", "/open-apis/authen/v1/oidc/refresh_token", {
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
-        }).encode()
-        req = urllib.request.Request(url, data=body, method="POST")
-        req.add_header("Authorization", f"Bearer {app_token}")
-        req.add_header("Content-Type", "application/json")
-        with urllib.request.urlopen(req, context=_ssl_context()) as resp:
-            data = json.loads(resp.read())
-        if data.get("code") != 0:
-            raise RuntimeError(f"Token refresh failed: {data.get('msg')}")
+        })
         self._user_token = data.get("access_token", "")
         new_refresh_token = data.get("refresh_token", refresh_token)
         _write_user_token_cache(
@@ -116,20 +105,16 @@ class FeishuAdapter(BaseAdapter):
         token = self._get_token()
         url = f"{FEISHU_HOST}{path}"
         data = json.dumps(body).encode() if body else None
-        req = urllib.request.Request(url, data=data, method=method)
-        req.add_header("Authorization", f"Bearer {token}")
-        req.add_header("Content-Type", "application/json")
-        try:
-            with urllib.request.urlopen(req, context=_ssl_context()) as resp:
-                result = json.loads(resp.read())
-            if result.get("code") != 0:
-                raise RuntimeError(f"Feishu API error: {result.get('code')} {result.get('msg')}")
-            return result.get("data", {})
-        except urllib.error.HTTPError as e:
-            body_str = e.read().decode(errors="replace")
-            raise RuntimeError(f"Feishu API {path} failed: {e.code} — {body_str}")
+        return _request_with_retry(url, data=data, method=method, token=token)
+
+    def _api_app(self, method: str, path: str, body: dict | None = None) -> dict:
+        token = self._get_app_token()
+        url = f"{FEISHU_HOST}{path}"
+        data = json.dumps(body).encode() if body else None
+        return _request_with_retry(url, data=data, method=method, token=token)
 
     def start_oauth(self, port: int = 8888) -> dict:
+        state = secrets.token_urlsafe(32)
         redirect_uri = f"http://localhost:{port}/callback"
         scope = "docx:document drive:drive bitable:app"
         auth_url = (
@@ -137,9 +122,10 @@ class FeishuAdapter(BaseAdapter):
             f"?app_id={self.app_id}"
             f"&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
             f"&scope={urllib.parse.quote(scope, safe='')}"
+            f"&state={state}"
         )
 
-        result_holder = {"code": None, "error": None}
+        result_holder = {"code": None, "error": None, "state": state}
         server = _start_callback_server(port, result_holder)
 
         print("Opening browser for Feishu authorization...")
@@ -165,28 +151,17 @@ class FeishuAdapter(BaseAdapter):
         return self._exchange_code(code)
 
     def _exchange_code(self, code: str) -> dict:
-        app_token = self._get_app_token()
-        url = f"{FEISHU_HOST}/open-apis/authen/v1/oidc/access_token"
-        body = json.dumps({
+        data = self._api_app("POST", "/open-apis/authen/v1/oidc/access_token", {
             "grant_type": "authorization_code",
             "code": code,
-        }).encode()
-        req = urllib.request.Request(url, data=body, method="POST")
-        req.add_header("Authorization", f"Bearer {app_token}")
-        req.add_header("Content-Type", "application/json")
-        with urllib.request.urlopen(req, context=_ssl_context()) as resp:
-            raw = json.loads(resp.read())
-        if raw.get("code") != 0:
-            raise RuntimeError(f"Token exchange failed: {raw.get('code')} {raw.get('msg')}")
-
-        d = raw.get("data", raw)
-        access_token = d["access_token"]
-        refresh_token = d.get("refresh_token", "")
-        expires_in = d.get("expires_in", 7200)
+        })
+        access_token = data.get("access_token", "")
+        refresh_token = data.get("refresh_token", "")
+        expires_in = data.get("expires_in", 7200)
         _write_user_token_cache(access_token, refresh_token, time.time() + expires_in - 300)
 
         self._user_token = access_token
-        return d
+        return data
 
     def save(self, note: dict) -> str:
         title = note.get("title", "Untitled")
@@ -268,9 +243,31 @@ class FeishuAdapter(BaseAdapter):
                 page_token = data.get("page_token", "")
                 if not page_token:
                     break
+
+            self._enrich_metadata(notes, intent_filter)
             return notes
         except Exception:
             return []
+
+    def _enrich_metadata(self, notes: list[dict], intent_filter: str | None) -> None:
+        for note in notes:
+            try:
+                blocks = self._api(
+                    "GET",
+                    f"/open-apis/docx/v1/documents/{note['_file']}/blocks?page_size=5",
+                )
+                body_text = _blocks_to_text(blocks.get("items", []))
+                parsed = _parse_body(note["_file"], body_text)
+                note["intent"] = parsed.get("intent", "")
+                note["tags"] = parsed.get("tags", [])
+                if intent_filter and note["intent"] != intent_filter:
+                    note["_skip"] = True
+            except Exception:
+                pass
+
+        for note in notes[:]:
+            if note.pop("_skip", False):
+                notes.remove(note)
 
 
 def _note_to_blocks(note: dict) -> list[dict]:
@@ -453,6 +450,12 @@ def _blocks_to_text(items: list[dict]) -> str:
 
 
 def _parse_body(doc_id: str, body: str) -> dict:
+    raw_json = _extract_raw_json(body)
+    if raw_json:
+        raw_json["_file"] = doc_id
+        raw_json["_body"] = body
+        return raw_json
+
     meta = {"_file": doc_id, "_body": body, "title": "", "intent": "", "tags": []}
     lines = body.split("\n")
     if lines:
@@ -475,6 +478,42 @@ def _parse_body(doc_id: str, body: str) -> dict:
     return meta
 
 
+def _extract_raw_json(body: str) -> dict | None:
+    lines = [l for l in body.split("\n") if l.strip()]
+    if not lines:
+        return None
+    last = lines[-1].strip()
+    if last.startswith("{") and last.endswith("}"):
+        try:
+            return json.loads(last)
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def _request_with_retry(url: str, data: bytes | None = None,
+                        method: str = "GET", token: str = "") -> dict:
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    for attempt in range(2):
+        req = urllib.request.Request(url, data=data, method=method)
+        for k, v in headers.items():
+            req.add_header(k, v)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read())
+            if result.get("code") != 0:
+                raise RuntimeError(f"Feishu API error: {result.get('code')} {result.get('msg')}")
+            return result.get("data", {})
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, OSError) as e:
+            if attempt == 1:
+                raise RuntimeError(f"Feishu API request failed: {e}")
+
+
 def _read_app_token_cache() -> dict | None:
     try:
         with open(APP_TOKEN_CACHE_FILE) as f:
@@ -487,6 +526,7 @@ def _write_app_token_cache(token: str, expire_at: float) -> None:
     APP_TOKEN_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(APP_TOKEN_CACHE_FILE, "w") as f:
         json.dump({"token": token, "expire_at": expire_at}, f)
+    APP_TOKEN_CACHE_FILE.chmod(0o600)
 
 
 def _read_user_token_cache() -> dict | None:
@@ -505,6 +545,7 @@ def _write_user_token_cache(access_token: str, refresh_token: str, expire_at: fl
             "refresh_token": refresh_token,
             "expire_at": expire_at,
         }, f)
+    USER_TOKEN_CACHE_FILE.chmod(0o600)
 
 
 def _clear_user_token_cache() -> None:
@@ -521,6 +562,13 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
 
         if parsed.path == "/callback":
+            cb_state = params.get("state", [None])[0]
+            expected_state = self.server.result.get("state", "")
+            if cb_state != expected_state:
+                self.server.result["error"] = "state_mismatch"
+                self._respond("Authorization failed: state mismatch.")
+                return
+
             code = params.get("code", [None])[0]
             error = params.get("error", [None])[0]
             if code:
@@ -548,18 +596,9 @@ class _CallbackHandler(BaseHTTPRequestHandler):
 
 
 def _start_callback_server(port: int, result_holder: dict) -> HTTPServer:
-    server = HTTPServer(("", port), _CallbackHandler)
+    server = HTTPServer(("127.0.0.1", port), _CallbackHandler)
     server.result = result_holder
     server.timeout = 10
     return server
 
 
-_ssl_context_cache = None
-
-
-def _ssl_context() -> ssl.SSLContext:
-    global _ssl_context_cache
-    if _ssl_context_cache is not None:
-        return _ssl_context_cache
-    _ssl_context_cache = ssl._create_unverified_context()
-    return _ssl_context_cache

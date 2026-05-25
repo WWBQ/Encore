@@ -57,7 +57,7 @@ class GitHubAdapter(BaseAdapter):
         for k, v in self._headers().items():
             req.add_header(k, v)
         try:
-            with urllib.request.urlopen(req) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 result = json.loads(resp.read())
             return 200, result
         except urllib.error.HTTPError as e:
@@ -149,9 +149,17 @@ class GitHubAdapter(BaseAdapter):
             if not meta:
                 continue
             title = meta.get("title", "").lower()
-            tags = " ".join(meta.get("tags", [])).lower()
-            if kw in title or kw in tags:
+            if kw in title:
                 results.append(meta)
+                continue
+            full = self.read_note(item["name"])
+            if full:
+                full_title = full.get("title", "").lower()
+                full_tags = " ".join(full.get("tags", [])).lower()
+                if kw in full_title or kw in full_tags:
+                    meta["tags"] = full.get("tags", [])
+                    meta["intent"] = full.get("intent", "")
+                    results.append(meta)
         return results
 
     def read_note(self, identifier: str) -> dict | None:

@@ -43,7 +43,7 @@ class NotionAdapter(BaseAdapter):
         for k, v in self._headers().items():
             req.add_header(k, v)
         try:
-            with urllib.request.urlopen(req) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
             body = e.read().decode(errors="replace")
@@ -128,7 +128,7 @@ class NotionAdapter(BaseAdapter):
             "tags": _get_multi_select(props.get("Tags", {})),
             "created_at": _get_date(props.get("Created At", {})),
             "key_decision": _get_rich_text(props.get("Key Decision", {})),
-            "open_questions": _get_rich_text(props.get("Open Questions", {})),
+            "open_questions": _parse_lines(_get_rich_text(props.get("Open Questions", {}))),
         }
         body_text = _blocks_to_text(blocks.get("results", []))
         meta["_body"] = body_text
@@ -194,6 +194,15 @@ def _get_date(prop: dict) -> str:
 def _get_rich_text(prop: dict) -> str:
     results = prop.get("rich_text", [])
     return results[0].get("plain_text", "") if results else ""
+
+
+def _parse_lines(text: str) -> list[str]:
+    lines = []
+    for line in text.split("\n"):
+        stripped = line.strip().lstrip("- ")
+        if stripped:
+            lines.append(stripped)
+    return lines
 # ---- Notion blocks conversion ----
 
 def _note_to_blocks(note: dict) -> list[dict]:

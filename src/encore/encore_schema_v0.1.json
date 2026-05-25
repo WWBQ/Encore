@@ -76,7 +76,7 @@
   "$defs": {
     "bug_fix_payload": {
       "type": "object",
-      "required": ["symptom", "root_cause", "solution"],
+      "required": ["symptom", "root_cause", "solution_summary"],
       "properties": {
         "symptom": { "type": "string", "description": "报错现象/症状描述" },
         "root_cause": { "type": "string", "description": "根因分析" },

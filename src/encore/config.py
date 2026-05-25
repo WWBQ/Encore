@@ -32,6 +32,7 @@ def save_config(config: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+    CONFIG_PATH.chmod(0o600)
 def get_enabled_adapters(config: dict | None = None) -> dict[str, dict]:
     """Return {adapter_name: adapter_config} for all enabled adapters."""
     if config is None:
